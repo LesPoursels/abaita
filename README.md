@@ -1,1 +1,3 @@
 # abaita
+
+Caccia il codice del badge e via...
