@@ -1,3 +1,3 @@
 # abaita
 
-Caccia il codice del badge e via...
+Caccia il codice del badge (hardcodato ammerda) e usalo.
