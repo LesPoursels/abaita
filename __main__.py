@@ -123,7 +123,7 @@ def scrape(conf, args):
             del data[pk]
 
     logging.info(u"Saving {} new rows to the database".format(len(data)))
-    for date, dt, badge, entrata, raw in data:
+    for (date, dt, badge), (entrata, raw) in data.iteritems():
         CAbaita(
             date=date,
             time=dt,
