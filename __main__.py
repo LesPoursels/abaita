@@ -3,15 +3,14 @@
 
 import ConfigParser
 import argparse
+import datetime
 import ftplib
+import itertools
 import logging
 import os
-import sqlalchemy.orm
 import sys
 from StringIO import StringIO
-from datetime import datetime, timedelta
 
-import itertools
 from orm import automap
 
 logging.basicConfig(level=logging.DEBUG,
@@ -34,9 +33,9 @@ def print_day(date, times):
 
     else:
         if len(times) == 3 and date == date.today():
-            hours = ((datetime.now() - times[2]) + (times[1] - times[0]))
+            hours = ((datetime.datetime.now() - times[2]) + (times[1] - times[0]))
             ape = "DAI CHE SI FA L'APE!!!!!!" if date.isoweekday() == 5 else ''
-            print 'Siamo a: {} ore... {}'.format(timedelta(seconds=int(hours.total_seconds())), ape)
+            print 'Siamo a: {} ore... {}'.format(datetime.timedelta(seconds=int(hours.total_seconds())), ape)
         else:
             if date != date.today():
                 print "WARNING: non hai timbrato, sciocco!"
@@ -52,10 +51,15 @@ def print_report(conf, args):
     badge = args.badge or conf.get('user', 'badge')
     logging.info(u"Printing report for badge {}".format(badge))
 
-    query = CAbaita.load(badge=badge).order_by(CAbaita.date)
+    if args.all:
+        query = CAbaita.load(badge=badge).order_by(CAbaita.date)
+    else:
+        query = CAbaita.load(badge=badge).filter(CAbaita.date == datetime.date.today())
+
     for date, rows in itertools.groupby(query, key=lambda r: r.date):
         logging.debug(u"Printing report for day {}".format(date))
-        print_day(date, [datetime.combine(date, r.time) for r in rows])
+        print_day(date, [datetime.datetime.combine(date, r.time) for r in rows])
+
 
 
 def scrape(conf, args):
@@ -107,7 +111,7 @@ def scrape(conf, args):
         if badge not in whitelist:
             continue
 
-        dt = datetime.strptime(row[9:23], "%Y%m%d%H%M%S")
+        dt = datetime.datetime.strptime(row[9:23], "%Y%m%d%H%M%S")
         entrata = bool(int(time[-1]))
         date = dt.date()
 
@@ -155,6 +159,7 @@ if __name__ == '__main__':
 
     parser_print = subparsers.add_parser('print')
     parser_print.add_argument('badge', nargs='?')
+    parser_print.add_argument('-a', '--all', action='store_true')
     parser_print.set_defaults(func=print_report)
     # endregion
 
