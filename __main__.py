@@ -99,7 +99,7 @@ def scrape(conf, args):
         logging.warning(u"No rows found")
         return
 
-    data = set()
+    data = {}
     for row in rows[1:]:
         time, badge, row_id, _ = row.split()
 
@@ -111,22 +111,27 @@ def scrape(conf, args):
         entrata = bool(int(time[-1]))
         date = dt.date()
 
-        data.add((date, dt, badge, entrata, row))
+        data[date, dt.time(), badge] = entrata, row
 
     logging.debug(u"Found {} rows".format(len(data)))
 
+    # Avoid saving duplicate data to the database
+    existing_data = CAbaita.load().filter(CAbaita.badge.in_(whitelist))
+    for row in existing_data:
+        pk = (row.date, row.time, row.badge)
+        if pk in data:
+            del data[pk]
+
+    logging.info(u"Saving {} new rows to the database".format(len(data)))
     for date, dt, badge, entrata, raw in data:
-        try:
-            CAbaita(
-                date=date,
-                time=dt,
-                badge=badge,
-                entrata=entrata,
-                raw=raw,
-            ).save()
-            CAbaita.commit()
-        except sqlalchemy.exc.IntegrityError:
-            continue
+        CAbaita(
+            date=date,
+            time=dt,
+            badge=badge,
+            entrata=entrata,
+            raw=raw,
+        ).save()
+    CAbaita.commit()
 
 
 if __name__ == '__main__':
