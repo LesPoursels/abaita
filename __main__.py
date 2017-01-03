@@ -3,10 +3,12 @@
 
 import ConfigParser
 import argparse
+import ast
 import datetime
 import ftplib
 import itertools
 import logging
+import math
 import os
 import sys
 from StringIO import StringIO
@@ -20,16 +22,52 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def print_day(date, times):
+def mawify(dt, uscita):
 
-    times = sorted(times)
+    if isinstance(dt, int):
+        dt = datetime.datetime.now().replace(minute=dt)
+
+    if dt.minute <= 4:
+        dt = dt.replace(minute=0)
+    if 26 <= dt.minute <= 34:
+        dt = dt.replace(minute=30)
+    if 56 <= dt.minute:
+        dt = dt.replace(minute=0, hour=(dt.hour + 1))
+
+    if uscita:
+        rounded = int(math.floor(dt.minute / 30.0) * 30)
+        dt = dt.replace(minute=rounded, second=0)
+    else:
+        rounded = int(math.ceil(dt.minute / 30.0) * 30)
+        if rounded == 60:
+            dt = dt.replace(second=0, minute=0, hour=(dt.hour + 1))
+        else:
+            dt = dt.replace(second=0, minute=rounded)
+
+    return dt
+
+
+def print_day(date, rows, maw=False):
+
+    rows = sorted((datetime.datetime.combine(r.date, r.time), r.uscita) for r in rows)
+    times = [r[0] for r in rows]
+    uscite = [r[1] for r in rows]
+    mawified = [mawify(*r) for r in rows] if maw else None
+
     print "[{}]".format(date)
-    for t in times:
-        print t.time()
+
+    if maw:
+        for t, m, u in zip(times, mawified, uscite):
+            print "{} {}\t=>\t{}".format(('u' if u else 'e'), t, m)
+    else:
+        for t in times:
+            print t
 
     if len(times) == 4:
         hours = (times[3] - times[2]) + (times[1] - times[0])
         print 'Ore sgobbate: {}'.format(hours)
+        hours = (mawified[3] - mawified[2]) + (mawified[1] - mawified[0])
+        print 'Ore sgobbate secondo maw: {}'.format(hours)
 
     else:
         if len(times) == 3 and date == date.today():
@@ -49,6 +87,7 @@ def print_report(conf, args):
     CAbaita = automap('abaita', database)['abaita']
 
     badge = args.badge or conf.get('user', 'badge')
+    maw = args.mawify or ast.literal_eval(conf.get('user', 'maw'))
     logging.info(u"Printing report for badge {}".format(badge))
 
     if args.all:
@@ -58,8 +97,7 @@ def print_report(conf, args):
 
     for date, rows in itertools.groupby(query, key=lambda r: r.date):
         logging.debug(u"Printing report for day {}".format(date))
-        print_day(date, [datetime.datetime.combine(date, r.time) for r in rows])
-
+        print_day(date, rows, maw=maw)
 
 
 def scrape(conf, args):
@@ -112,10 +150,10 @@ def scrape(conf, args):
             continue
 
         dt = datetime.datetime.strptime(row[9:23], "%Y%m%d%H%M%S")
-        entrata = bool(int(time[-1]))
+        uscita = bool(int(time[-1]))
         date = dt.date()
 
-        data[date, dt.time(), badge] = entrata, row
+        data[date, dt.time(), badge] = uscita, row
 
     logging.debug(u"Found {} rows".format(len(data)))
 
@@ -127,12 +165,12 @@ def scrape(conf, args):
             del data[pk]
 
     logging.info(u"Saving {} new rows to the database".format(len(data)))
-    for (date, dt, badge), (entrata, raw) in data.iteritems():
+    for (date, dt, badge), (uscita, raw) in data.iteritems():
         CAbaita(
             date=date,
             time=dt,
             badge=badge,
-            entrata=entrata,
+            uscita=uscita,
             raw=raw,
         ).save()
     CAbaita.commit()
@@ -159,6 +197,7 @@ if __name__ == '__main__':
 
     parser_print = subparsers.add_parser('print')
     parser_print.add_argument('badge', nargs='?')
+    parser.add_argument('-m', '--mawify', action='store_true')
     parser_print.add_argument('-a', '--all', action='store_true')
     parser_print.set_defaults(func=print_report)
     # endregion
