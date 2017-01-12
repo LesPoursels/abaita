@@ -70,6 +70,9 @@ def print_day(date, rows, maw=False):
         print 'Ore sgobbate secondo maw: {}'.format(hours)
 
     else:
+        if maw:
+            times = mawified
+
         if len(times) == 3 and date == date.today():
             hours = ((datetime.datetime.now() - times[2]) + (times[1] - times[0]))
             ape = "DAI CHE SI FA L'APE!!!!!!" if date.isoweekday() == 5 else ''
