@@ -90,7 +90,7 @@ def print_report(conf, args):
     CAbaita = automap('abaita', database)['abaita']
 
     badge = args.badge or conf.get('user', 'badge')
-    maw = args.mawify or ast.literal_eval(conf.get('user', 'maw'))
+    maw = args.mawify if args.mawify is not None else ast.literal_eval(conf.get('user', 'maw'))
     logging.info(u"Printing report for badge {}".format(badge))
 
     if args.all:
@@ -200,9 +200,11 @@ if __name__ == '__main__':
 
     parser_print = subparsers.add_parser('print')
     parser_print.add_argument('badge', nargs='?')
-    parser.add_argument('-m', '--mawify', action='store_true')
     parser_print.add_argument('-a', '--all', action='store_true')
-    parser_print.set_defaults(func=print_report)
+    maw = parser_print.add_mutually_exclusive_group()
+    maw.add_argument('-m', dest='mawify', action='store_true')
+    maw.add_argument('-M', dest='mawify', action='store_false')
+    parser_print.set_defaults(func=print_report, mawify=None)
     # endregion
 
     args = parser.parse_args(sys.argv[1:])
