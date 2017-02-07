@@ -1,0 +1,16 @@
+[user]
+badge=
+maw=False
+
+[server]
+address=
+user=admin
+password=
+filename=btransaction.loc
+
+[database]
+endpoint=postgresql+psycopg2://<username>@localhost/abaita
+
+[whitelist]
+values=
+
