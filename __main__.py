@@ -21,10 +21,12 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s.%(msecs)03d|%(levelname)-8s|%(name)s|%(filename)s:%(lineno)d|%(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
+eight_hours = datetime.timedelta(hours=8)
+
 
 def mawify(dt, uscita):
-
     if isinstance(dt, int):
+        # Non ricordo assolutamente perchè. Forse per dei test. Boh.
         dt = datetime.datetime.now().replace(minute=dt)
 
     if dt.minute <= 4:
@@ -48,10 +50,12 @@ def mawify(dt, uscita):
 
 
 def print_day(date, rows, maw=False):
-
     rows = sorted((datetime.datetime.combine(r.date, r.time), r.uscita) for r in rows)
-    times = [r[0] for r in rows]
-    uscite = [r[1] for r in rows]
+
+    # Did you know that zip is its own inverse?
+    # times, uscite = [r[0] for r in rows], [r[1] for r in rows]
+    times, uscite = zip(*rows)
+
     mawified = [mawify(*r) for r in rows] if maw else None
 
     print "[{}]".format(date)
@@ -66,26 +70,38 @@ def print_day(date, rows, maw=False):
     if len(times) == 4:
         hours = (times[3] - times[2]) + (times[1] - times[0])
         print 'Ore sgobbate: {}'.format(hours)
-        hours = (mawified[3] - mawified[2]) + (mawified[1] - mawified[0])
-        print 'Ore sgobbate secondo maw: {}'.format(hours)
+        if maw:
+            hours = (mawified[3] - mawified[2]) + (mawified[1] - mawified[0])
+            print 'Ore sgobbate secondo maw: {}'.format(hours)
 
     else:
         if maw:
             times = mawified
 
-        if len(times) == 3 and date == date.today():
-            hours = ((datetime.datetime.now() - times[2]) + (times[1] - times[0]))
-            ape = "DAI CHE SI FA L'APE!!!!!!" if date.isoweekday() == 5 else ''
-            print 'Siamo a: {} ore... {}'.format(datetime.timedelta(seconds=int(hours.total_seconds())), ape)
-        else:
-            if date != date.today():
-                print "WARNING: non hai timbrato, sciocco!"
+        if date == date.today():
+
+            if len(times) in (1, 2):
+                expected = times[0] + eight_hours + datetime.timedelta(minutes=30)
+
+            elif len(times) == 3:
+                hours = ((datetime.datetime.now() - times[2]) + (times[1] - times[0]))
+                expected = datetime.datetime.now() + (eight_hours - hours)
+                ape = "DAI CHE SI FA L'APE!!!!!!" if date.isoweekday() == 5 else ''
+                print 'Siamo a: {} ore... {}'.format(datetime.timedelta(seconds=int(hours.total_seconds())), ape)
+
+            else:
+                expected = None
+
+            if expected:
+                print "Puoi uscire alle {}".format(expected.time())
+
+        elif len(times) < 4:
+            print "WARNING: non hai timbrato, sciocco!"
 
     print ""
 
 
 def print_report(conf, args):
-
     database = args.database or conf.get('database', 'endpoint')
     CAbaita = automap('abaita', database)['abaita']
 
@@ -104,7 +120,6 @@ def print_report(conf, args):
 
 
 def scrape(conf, args):
-
     database = args.database or conf.get('database', 'endpoint')
     CAbaita = automap('abaita', database)['abaita']
 
@@ -180,7 +195,6 @@ def scrape(conf, args):
 
 
 if __name__ == '__main__':
-
     # Main config file
     conf = ConfigParser.ConfigParser()
     conf.read(os.path.expanduser('~/.abaita.rc'))
